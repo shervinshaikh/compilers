@@ -1,0 +1,24 @@
+.text
+
+_test: 
+push %ebp
+mov %esp, %ebp
+#### Visit INT
+pushl $8
+#### RETURN
+popl %eax
+mov %ebp, %esp 
+pop %ebp
+	ret
+
+.global Main
+Main:
+#### VISIT Decl
+####VISIT CALL
+call _test
+#### add  0, %esp
+pushl %eax
+#### Visit ID
+#### RETURN
+popl %eax
+	ret

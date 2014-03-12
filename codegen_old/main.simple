@@ -1,0 +1,16 @@
+function test(a:int):int{
+    return a;
+}
+
+
+function Main() : int {
+      var e,c:int;
+    var a,b,f:intarray[5];
+    e=3;
+    if(e<=1){
+        f[3]=test(100);
+    }else{
+        f[3]=test(50);
+    }
+    return f[e];
+}

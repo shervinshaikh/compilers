@@ -1,0 +1,5 @@
+Ramon Rovirosa
+CS160
+
+Working on function calls.
+Not sure how to do array assignments.

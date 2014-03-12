@@ -1,0 +1,12 @@
+function sum(a : int, b : int, c : int, d : int) : int {
+    var x : int;
+    x = a + b + c + d;
+    return x;
+}
+
+function Main() : int {
+    var c, d : int;
+    c = 5;
+    d = sum(c, 1, 2, 3);
+    return d;
+}

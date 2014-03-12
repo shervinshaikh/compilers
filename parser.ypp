@@ -1,0 +1,165 @@
+%{
+    #include <stdio.h>
+    #include "ast.hpp"
+    #include "primitive.hpp"
+    #include "symtab.hpp"
+    #include "classhierarchy.hpp"
+    #define YYDEBUG 1
+    
+    extern Program_ptr ast;
+    int yylex(void);
+    void yyerror(const char *);
+%}
+
+/* Enables verbose error messages */
+%error-verbose
+
+/* Put your token declarations here */
+%token NOTHING
+%token PRINT
+%token IF
+%token THEN
+%token RETURN
+%token AND
+%token NOT
+%token INT
+%token BOOL
+%token FROM
+%token PLUS
+%token MINUS
+%token TIMES
+%token DIVIDE
+%token LT
+%token LTE
+%token DOT
+%token OPENPAREN
+%token CLOSEPAREN
+%token OPENCURLY
+%token CLOSECURLY
+%token EQUAL
+%token COMMA
+%token COLON
+%token SEMI
+%token <u_base_int> NUM_LITERAL
+%token <u_base_int> BOOL_LITERAL
+%token <u_base_charptr> IDCLASS
+%token <u_base_charptr> IDMETHVAR
+
+/* Put your precedence declarations here */
+%left AND
+%right NOT UMINUS
+%left LT LTE
+%left PLUS MINUS
+%left TIMES DIVIDE
+
+/* Put your %type declarations here */
+%type <u_class_list> Classes
+%type <u_class> Class
+%type <u_classid> Subclass
+%type <u_declaration_list> Variables
+%type <u_declaration> Variable
+%type <u_variableid_list> Name
+%type <u_method_list> Functions
+%type <u_methodbody> Body
+%type <u_type> Type
+%type <u_statement_list> Statements
+%type <u_statement> Statement
+%type <u_expression> Expression
+%type <u_expression_list> ExpressionList ExpressionListP
+%type <u_parameter_list> Arguments
+%type <u_return> Return
+
+%%
+
+/*  Put your rules with attached AST building actions here.
+    You can remove the Start -> Epsilon rule, it is a placeholder
+    because Bison requires at least 1 rule to compile. */
+Start   : Classes { ast = new ProgramImpl($1); }
+        ;
+
+Classes : Classes Class     { $1 -> push_back($2); $$ = $1; }
+        |                   { $$ = new list<Class_ptr>(); }
+        ;
+
+Class   : IDCLASS Subclass OPENCURLY Variables Functions CLOSECURLY SEMI    { $$ = new ClassImpl(new ClassIDImpl(new ClassName($1)), $2, $4, $5); }
+        ;
+
+Subclass    : FROM IDCLASS { $$ = new ClassIDImpl(new ClassName($2)); }
+            |              { $$ = NULL; }
+            ;
+
+Variables   : Variables Variable    { $1 -> push_back($2); $$ = $1; }
+            |                       { $$ = new list<Declaration_ptr>; }
+            ;
+
+Variable    : Name COLON Type SEMI  { $$ = new DeclarationImpl($1, $3); }
+            ;
+
+Name    : Name COMMA IDMETHVAR  { $1 -> push_back(new VariableIDImpl(new SymName($3))); $$ = $1; }
+        | IDMETHVAR     { $$ = new list<VariableID_ptr>; $$ -> push_back(new VariableIDImpl(new SymName($1))); }
+        ; 
+
+Type    : BOOL      { $$ = new TBoolean(); }
+        | INT       { $$ = new TInteger(); }
+        | IDCLASS   { $$ = new TObject(new ClassIDImpl(new ClassName($1))); }
+        | NOTHING   { $$ = new TNothing(); }
+        ;
+
+Return : RETURN             { $$ = new ReturnImpl(new Nothing); }
+       | RETURN Expression  { $$ = new ReturnImpl($2); }
+       ;
+
+Functions   : IDMETHVAR OPENPAREN Arguments CLOSEPAREN COLON Type OPENCURLY Body CLOSECURLY SEMI Functions { $11 -> push_front(new MethodImpl(new MethodIDImpl(new SymName($1)), $3, $6, $8)); $$ = $11; }
+            |   { $$ = new list<Method_ptr>(); }
+            ;
+
+Body        : Variables Statements Return SEMI { $$ = new MethodBodyImpl($1, $2, $3); }
+            ;
+
+Arguments   : Arguments COMMA IDMETHVAR COLON Type  { $1 -> push_back(new ParameterImpl(new VariableIDImpl(new SymName($3)), $5)); $$ = $1; }
+            | IDMETHVAR COLON Type                  { $$ = new list<Parameter_ptr>(); $$ -> push_back(new ParameterImpl(new VariableIDImpl(new SymName($1)), $3)); }
+            |                           { $$ = new list<Parameter_ptr>(); }
+            ;
+
+Statements  : Statement SEMI Statements { $3 -> push_front($1); $$ = $3; }
+            |                           { $$ = new list<Statement_ptr>(); }
+            ;
+
+Statement   : IDMETHVAR EQUAL Expression    { $$ = new Assignment(new VariableIDImpl(new SymName($1)), $3); }
+            | PRINT Expression              { $$ = new Print($2); }
+            | IF Expression THEN Statement  { $$ = new If($2, $4); }
+            ;
+
+Expression : Expression PLUS Expression     { $$ = new Plus($1, $3); }
+           | Expression MINUS Expression    { $$ = new Minus($1, $3); }
+           | Expression TIMES Expression    { $$ = new Times($1, $3); }
+           | Expression DIVIDE Expression   { $$ = new Divide($1, $3); }
+           | Expression LT Expression       { $$ = new LessThan($1, $3); }
+           | Expression LTE Expression      { $$ = new LessThanEqualTo($1, $3); }
+           | Expression AND Expression      { $$ = new And($1, $3); }
+           | NOT Expression                 { $$ = new Not($2); }
+           | MINUS Expression %prec UMINUS  { $$ = new UnaryMinus($2); }
+           | IDMETHVAR DOT IDMETHVAR OPENPAREN ExpressionList CLOSEPAREN    { $$ = new MethodCall(new VariableIDImpl(new SymName($1)), new MethodIDImpl(new SymName($3)), $5); }
+           | IDMETHVAR OPENPAREN ExpressionList CLOSEPAREN                  { $$ = new SelfCall(new MethodIDImpl(new SymName($1)), $3); }
+           | IDMETHVAR      { $$ = new Variable(new VariableIDImpl(new SymName($1))); }
+           | NUM_LITERAL    { $$ = new IntegerLiteral(new Primitive($1)); }
+           | BOOL_LITERAL   { $$ = new BooleanLiteral(new Primitive($1)); }
+           ;
+
+ExpressionList : Expression ExpressionListP     { $2 -> push_front($1); $$ = $2;}
+               |                                { $$ = new list<Expression_ptr>; }
+               ;
+
+ExpressionListP : COMMA Expression ExpressionListP  { $3 -> push_front($2); $$ = $3; }
+                |                                   { $$ = new list<Expression_ptr>; }
+                ;
+
+
+%%
+
+extern int yylineno;
+
+void yyerror(const char *s) {
+  fprintf(stderr, "%s at line %d\n", s, yylineno);
+  exit(1);
+}
