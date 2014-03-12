@@ -260,46 +260,133 @@ public:
   void visitPlus(Plus *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### ADD\n");
+
+    p->visit_children(this);
+
+    fprintf(m_outputfile, "  popl %%ebx\n");
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  addl %%ebx, %%eax\n");
+    fprintf(m_outputfile, "  pushl %%eax\n");
 
   }
   void visitMinus(Minus *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### MINUS\n");
+
+    p->visit_children(this);
+
+    fprintf(m_outputfile, "  popl %%ebx\n");
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  subl %%ebx, %%eax\n");
+    fprintf(m_outputfile, "  pushl %%eax\n");
 
   }
   void visitTimes(Times *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### TIMES\n");
+
+    p->visit_children(this);
+    
+    fprintf(m_outputfile, "  popl %%ebx\n");
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  imull %%ebx, %%eax\n");
+    fprintf(m_outputfile, "  pushl %%eax\n");
 
   }
   void visitDivide(Divide *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### DIVIDE\n");
+
+    p->visit_children(this);
+    
+    fprintf(m_outputfile, "  popl %%ebx\n");
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  cdq\n");
+    fprintf(m_outputfile, "  idivl %%ebx\n");
+    fprintf(m_outputfile, "  pushl %%eax\n");
 
   }
   void visitAnd(And *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### AND\n");
+
+    p->visit_children(this);
+    
+    fprintf(m_outputfile, "  popl %%ebx\n");
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  andl %%ebx, %%eax\n");
+    fprintf(m_outputfile, "  pushl %%eax\n");
 
   }
   void visitLessThan(LessThan *p) {
 
          // WRITEME
+    p->visit_children(this);
+
+    int l = new_label();
+
+    fprintf(m_outputfile, "  popl %%ebx\n");
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  cmp %%ebx, %%eax\n");
+    fprintf(m_outputfile, "  jle equal%d\n", l);
+
+    fprintf(m_outputfile, "  pushl $0\n");
+    fprintf(m_outputfile, "  jmp end%d\n", l);
+
+    fprintf(m_outputfile, "  equal%d:\n", l);
+    fprintf(m_outputfile, "  pushl $1\n");
+
+    fprintf(m_outputfile, "  end%d:\n", l);
 
   }
   void visitLessThanEqualTo(LessThanEqualTo *p) {
 
          // WRITEME
+    p->visit_children(this);
+
+    int l = new_label();
+
+    fprintf(m_outputfile, "  popl %%ebx\n");
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  cmp %%ebx, %%eax\n");
+    fprintf(m_outputfile, "  jle equal%d\n", l);
+
+    fprintf(m_outputfile, "  pushl $0\n");
+    fprintf(m_outputfile, "  jmp end%d\n", l);
+
+    fprintf(m_outputfile, "  equal%d:\n", l);
+    fprintf(m_outputfile, "  pushl $1\n");
+
+    fprintf(m_outputfile, "  end%d:\n", l);
 
   }
   void visitNot(Not *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### NOT\n");
+
+    p->visit_children(this);
+    
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  not %%eax\n");
+    fprintf(m_outputfile, "  pushl %%eax\n");
 
   }
   void visitUnaryMinus(UnaryMinus *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### AND\n");
+
+    p->visit_children(this);
+    
+    fprintf(m_outputfile, "  popl %%eax\n");
+    fprintf(m_outputfile, "  negl %%eax\n");
+    fprintf(m_outputfile, "  pushl %%eax\n");
 
   }
   void visitMethodCall(MethodCall *p) {
@@ -320,11 +407,15 @@ public:
   void visitIntegerLiteral(IntegerLiteral *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### INT literal\n");
+    fprintf(m_outputfile, "  pushl $%d\n", p->m_primitive->m_data);
 
   }
   void visitBooleanLiteral(BooleanLiteral *p) {
 
          // WRITEME
+    fprintf(m_outputfile, "#### BOOL literal\n");
+    fprintf(m_outputfile, "  pushl $%d\n", p->m_primitive->m_data);
 
   }
   void visitNothing(Nothing *p) {
