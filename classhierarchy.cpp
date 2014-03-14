@@ -112,7 +112,7 @@ ClassNode* ClassTable::getParentOf( ClassName * name ) {
 }
 
     ClassNode*  ClassTable::insert( const char  * name, const char * superClass, ClassImpl * astNode, SymScope * classScope ){
-	return this->insert(new ClassName(name),new ClassName(name),astNode,classScope);
+	return this->insert(new ClassName(name),new ClassName(superClass),astNode,classScope);
 }
     ClassNode*  ClassTable::lookup( const char * name ){
 	return this->lookup(new ClassName(name));

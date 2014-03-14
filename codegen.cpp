@@ -340,11 +340,11 @@ public:
     fprintf(m_outputfile, "##### ASSIGNMENT\n");
     p->visit_children(this);
 
-    // char* variableName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
-    // int offset = currMethodOffset->get_offset(variableName);
+    char* variableName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
+    int offset = currMethodOffset->get_offset(variableName);
 
-    // fprintf(m_outputfile, "        popl %%eax\n");
-    // fprintf(m_outputfile, "        movl %%eax, %d(%%ebp)\n", offset);
+    fprintf(m_outputfile, "        popl %%eax\n");
+    fprintf(m_outputfile, "        movl %%eax, %d(%%ebp)\n", offset);
 
   }
   void visitIf(If *p) {
