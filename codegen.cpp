@@ -217,7 +217,6 @@ public:
     fprintf(m_outputfile, "## CLASS\n");
 
     ClassIDImpl* cid = ((ClassIDImpl*)p->m_classid_1);
-    // visitClassIDImpl(cid);
     char* className = strdup(cid->m_classname->spelling());
     currClassName = strdup(className);
 
@@ -264,15 +263,21 @@ public:
     int offset = wordsize*2;
     list<Parameter_ptr>::iterator par_i;
     forall(par_i, p->m_parameter_list){
-      ParameterImpl* p = (ParameterImpl*)(*par_i);
-      char* paramName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
-      Basetype param_type = p->m_type->m_attribute.m_type.baseType;
+      ParameterImpl* pa = (ParameterImpl*)(*par_i);
+      char* paramName = strdup(((VariableIDImpl*)(pa->m_variableid))->m_symname->spelling());
+
+      pa->m_type->accept(this);
+      Basetype param_type = pa->m_type->m_attribute.m_type.baseType;
       
       CompoundType type;
       type.baseType = param_type;
-      type.classID = strdup(paramName);
+      if(type.baseType == bt_object){
+        TObject* t = (TObject*)pa->m_type;
+        ClassIDImpl* cid = (ClassIDImpl*)t->m_classid;
+        type.classID = strdup(cid->m_classname->spelling());
+      }
 
-      // cerr << "## Param: \'" << paramName << "\', type: " << bt_to_string(param_type) << ", offset: " << offset << endl;
+      cerr << "## Param: \'" << paramName << "\', type: " << bt_to_string(param_type) << ", offset: " << offset << endl;
       currMethodOffset->insert(paramName, offset, wordsize, type);
       programSize += wordsize;
       offset = offset + wordsize;
@@ -309,17 +314,24 @@ public:
     list<Declaration_ptr>::iterator dec_i;
     forall(dec_i, p->m_declaration_list){
       DeclarationImpl* d = (DeclarationImpl*)(*dec_i);
+
+      d->m_type->accept(this);
       Basetype decl_type = d->m_type->m_attribute.m_type.baseType;
 
       list<VariableID_ptr>::iterator var_i;
       forall(var_i, d->m_variableid_list){
-        char *variableName = strdup(((VariableIDImpl*)(*var_i))->m_symname->spelling());
+        VariableIDImpl* var = ((VariableIDImpl*)(*var_i));
+        char *variableName = strdup(var->m_symname->spelling());
 
         CompoundType type;
         type.baseType = decl_type;
-        type.classID = strdup(variableName);
+        if(type.baseType == bt_object){
+          TObject* t = (TObject*)d->m_type;
+          ClassIDImpl* cid = (ClassIDImpl*)t->m_classid;
+          type.classID = strdup(cid->m_classname->spelling());
+        }
 
-        cerr << "## Local: \'" << variableName << "\', type: " << bt_to_string(decl_type) << ", offset: " << offset << endl;
+        cerr << "## Local: \'" << variableName << "\', type: " << bt_to_string(decl_type) << ", classID: " << type.classID << endl;
         currMethodOffset->insert(variableName, offset, wordsize, type);
         offset = (offset - wordsize);
       }
@@ -392,10 +404,18 @@ public:
 
 
   }
-  void visitTInteger(TInteger *p) {}
-  void visitTBoolean(TBoolean *p) {}
-  void visitTNothing(TNothing *p) {}
-  void visitTObject(TObject *p) {}
+  void visitTInteger(TInteger *p) {
+    p->m_attribute.m_type.baseType = bt_integer;
+  }
+  void visitTBoolean(TBoolean *p) {
+    p->m_attribute.m_type.baseType = bt_boolean;
+  }
+  void visitTNothing(TNothing *p) {
+    p->m_attribute.m_type.baseType = bt_nothing;
+  }
+  void visitTObject(TObject *p) {
+    p->m_attribute.m_type.baseType = bt_object;
+  }
   void visitClassIDImpl(ClassIDImpl *p) {
 
          // WRITEME
@@ -552,11 +572,29 @@ public:
   void visitMethodCall(MethodCall *p) {
 
          // WRITEME
+  //   VariableID *m_variableid;
     // Push arguments on the stack
+    int param_size = p->m_expression_list->size();
+    list<Expression_ptr>::reverse_iterator exp_i;
+    forallr(exp_i, p->m_expression_list){
+      cerr << "# parameter" << endl;
+      (*exp_i)->accept(this);
+    }
+
+    char* variableName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
+    CompoundType type = currMethodOffset->get_type(variableName);
+    cerr << "# class name: " << type.classID << ", type: " << type.baseType << endl;
 
     // Push return address
-
     // Call the function
+    MethodIDImpl* m = ((MethodIDImpl*)p->m_methodid);
+    visitMethodIDImpl(m);
+    char* methodName = strdup(m->m_symname->spelling());
+    fprintf(m_outputfile, "        call %s_%s\n", type.classID, methodName);
+
+    // POST-CALL
+    cerr << "## post-call" << endl;
+    fprintf(m_outputfile, "        addl $%d, %%ebp\n", param_size*wordsize);
 
   }
   void visitSelfCall(SelfCall *p) {
