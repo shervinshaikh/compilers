@@ -280,9 +280,9 @@ public:
 
     fprintf(m_outputfile, "### METHOD\n");
 
+    fprintf(m_outputfile, "%s_%s:\n", currClassName, methodName);
     // PROLOGUE
     cerr << "## prologue" << endl;
-    fprintf(m_outputfile, "%s_%s:\n", currClassName, methodName);
     // save the activation record pointer of the caller function
     fprintf(m_outputfile, "        pushl %%ebp\n");
     // setup activation record pointer
@@ -353,12 +353,19 @@ public:
     fprintf(m_outputfile, "##### IF ELSE\n");
     p->visit_children(this);
 
+    //  Expression *m_expression;
+    //  Statement *m_statement;
+    // fprintf(m_outputfile, "        if\n");
+
   }
   void visitPrint(Print *p) {
 	
          // WRITEME
     fprintf(m_outputfile, "##### PRINT\n");
     p->visit_children(this);
+
+    // TODO: acts kind of weird
+    fprintf(m_outputfile, "        call Print\n");
 
   }
   void visitReturnImpl(ReturnImpl *p) {
@@ -373,11 +380,9 @@ public:
     cerr << "## epilogue" << endl;
     // clean up  activation record
     // deallocating the local variable space allocated
-    fprintf(m_outputfile, "        movl %%ebp, %%esp \n");
     // restoring the caller's activation record pointer
-    fprintf(m_outputfile, "        popl %%ebp\n");
-    // returning to the return address
     fprintf(m_outputfile, "        leave\n");
+    // returning to the return address
     fprintf(m_outputfile, "        ret\n\n");
 
 
@@ -571,7 +576,7 @@ public:
 
     // POST-CALL
     cerr << "## post-call" << endl;
-    fprintf(m_outputfile, "        addl $%d, %%ebp\n", param_size*wordsize);
+    fprintf(m_outputfile, "        addl $%d, %%ebp\n", currMethodOffset->getTotalSize());
 
   }
   void visitVariable(Variable *p) {
