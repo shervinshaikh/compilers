@@ -351,11 +351,16 @@ public:
 
          // WRITEME
     fprintf(m_outputfile, "##### IF ELSE\n");
-    p->visit_children(this);
 
     //  Expression *m_expression;
     //  Statement *m_statement;
-    // fprintf(m_outputfile, "        if\n");
+    p->m_expression->accept(this);
+    int label = new_label();
+    fprintf(m_outputfile, "        popl %%eax\n");
+    fprintf(m_outputfile, "        cmp $1, %%eax\n");
+    fprintf(m_outputfile, "        jne end%d\n", label);
+    p->m_statement->accept(this);
+    fprintf(m_outputfile, "end%d:\n", label);
 
   }
   void visitPrint(Print *p) {
@@ -576,7 +581,7 @@ public:
 
     // POST-CALL
     cerr << "## post-call" << endl;
-    fprintf(m_outputfile, "        addl $%d, %%ebp\n", currMethodOffset->getTotalSize());
+    fprintf(m_outputfile, "        addl $%d, %%ebp\n", param_size*wordsize);
 
   }
   void visitVariable(Variable *p) {
