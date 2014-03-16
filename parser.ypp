@@ -47,10 +47,10 @@
 
 /* Put your precedence declarations here */
 %left AND
-%right NOT UMINUS
 %left LT LTE
 %left PLUS MINUS
 %left TIMES DIVIDE
+%right UMINUS NOT
 
 /* Put your %type declarations here */
 %type <u_class_list> Classes
