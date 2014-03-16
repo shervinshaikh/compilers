@@ -1,0 +1,51 @@
+Animal
+{
+
+  dummy: Int;
+  dummy1: Int;
+  add(): Int
+  {
+    a: Int;
+    b: Int;
+    dummy = 5;
+    dummy1 = 6;
+
+    return dummy + dummy1;
+
+
+  
+  };
+
+};
+
+
+Program
+{
+  q : Int;
+  r : Int;
+
+  end(): Nothing
+  {
+    r = 7;
+  q = 5;
+
+  return;
+
+  };
+
+
+  start() : Nothing
+  {
+    a : Nothing;
+    b : Int;
+    c : Int;
+    tiger: Animal;
+
+
+  b = tiger.add();  
+  
+  print b;
+   
+    return;
+  };
+};

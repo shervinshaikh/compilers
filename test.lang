@@ -12,28 +12,33 @@ Dog {
 };
 
 Program {
-  v : Int;
-  hlll : Bool;
-  dogger : Dog;
+  q : Int;
+  r : Int;
 
   haha(a : Int, b : Int) : Int {
     bad : Bool;
     z : Int;
     bad = false;
+    q = 55;
     if bad then print a;
-    z = 5;
-    print a + b + z;
-    return a + b + z;
+    z = a + b + 5;
+    print q;
+    return z;
+  };
+
+  end() : Nothing {
+    r = 18;
+    q = 7;
+    print r;
+    return;
   };
 
   start() : Nothing {
-    a : Int;
-    a = 2;
-    print a;
+    a : Nothing;
+    a = end();
+    print q;
+    print r;
     print 88;
-    a = haha(8, 6+6);
-    print 88;
-    print a;
     return;
   };
 };

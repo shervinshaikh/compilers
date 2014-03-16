@@ -1,0 +1,56 @@
+Blah {
+  whollys : Int;
+  
+  hello(yes:OtherClass, vab:Bool) : Int {
+    return 5;
+  };
+};
+
+Parent from Blah {
+  goodCaseVariable : Int;
+};
+
+OtherClass from Parent {
+  
+};
+
+NonexistantClass from OtherClass{
+
+};
+
+AnotherClass from NonexistantClass {
+  goodCaseVariable : Int;
+  some : AnObject;
+  that : Bool;
+  var : Int;
+  b : Bool;
+
+  aMethod(object:NonexistantClass, yes:Int) : Int {
+    obj : NonexistantClass;
+    bad : Bool;
+    yes2 : Int;
+    yes2 = 5 * 5;
+    wholly = 5;
+    print obj.hello(obj, bad);
+    yes = obj.hello(obj, bad);
+    obj = object;
+    that = b and b;
+    print obj;
+    if that then that = b;
+    return 5;
+  };
+};
+
+Program {
+  end() : Nothing {
+    var2 : Int;
+    var2 = 5;
+    return;
+  };
+
+  start() : Nothing {
+    helloWorld : Bool;
+    helloWorld = not true;
+    return;
+  };
+};

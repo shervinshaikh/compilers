@@ -189,6 +189,9 @@ class Codegen : public Visitor
   void allocSpace(int size)
   {
 	// Optional WRITE ME
+    fprintf(m_outputfile, "        movl _heap_top, %%ecx\n");
+    // fprintf(m_outputfile, "        pushl %s\n", heapTop);
+    fprintf(m_outputfile, "        addl $%d, %s\n", size, heapTop);
   }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -229,7 +232,7 @@ public:
     // currClassOffset->insert(className, offset, size, type);
 
     // TODO: regular variables in class then objects in class
-    int offset = 0;
+    int offset = 4;
     int size = 0;
     list<Declaration_ptr>::iterator dec_i;
     forall(dec_i, p->m_declaration_list){
@@ -243,7 +246,7 @@ public:
         VariableIDImpl* var = ((VariableIDImpl*)(*var_i));
         char *variableName = strdup(var->m_symname->spelling());
 
-        cerr << "## Class: \'" << variableName << "\', type: " << bt_to_string(decl_type) << endl;
+        cerr << "## Class var: \'" << variableName << "\', type: " << bt_to_string(decl_type);
 
         CompoundType type;
         type.baseType = decl_type;
@@ -252,21 +255,22 @@ public:
           ClassIDImpl* cid = (ClassIDImpl*)t->m_classid;
           type.classID = strdup(cid->m_classname->spelling());
 
-          // int objectSize = cid->m_attribute.m_type.m_size;
           int objectSize = m_classtable->lookup(type.classID)->offset->getTotalSize();
           cerr << "## object size: " << objectSize << ", classID: \"" << type.classID << "\"" << endl;
-          // Do we allocate a pointer to the object within this object or
-          // actually create this object         
-          currClassOffset->insert(variableName, offset, objectSize, type);
-          offset = (offset + objectSize);
-          size = (size + objectSize);
-        } else {
           currClassOffset->insert(variableName, offset, wordsize, type);
+
+          offset = (offset + wordsize);
+          size = (size + wordsize);
+        } else {
+          cerr << ", offset: " << offset << endl;
+          currClassOffset->insert(variableName, offset, wordsize, type);
+          
           size = (size + wordsize);
           offset = (offset + wordsize);
         }
       }
     }
+    if (strcmp(type.classID, "Program") == 0) start(size);
 
     // Set the size
     cerr << "# CLASS SIZE: " << size << endl;
@@ -288,7 +292,6 @@ public:
 
   }
   void visitMethodImpl(MethodImpl *p) {
-    int programSize = 0;
     MethodIDImpl* m = ((MethodIDImpl*)p->m_methodid);
     visitMethodIDImpl(m);
     char* methodName = strdup(m->m_symname->spelling());
@@ -327,7 +330,6 @@ public:
 
       cerr << "## Param: \'" << paramName << "\', type: " << bt_to_string(param_type) << ", offset: " << offset << endl;
       currMethodOffset->insert(paramName, offset, wordsize, type);
-      programSize += wordsize;
       offset = offset + wordsize;
     }
 
@@ -346,10 +348,6 @@ public:
     fprintf(m_outputfile,"        subl $%d,%%esp\n", currMethodOffset->getTotalSize());
 
     p->visit_children(this);
-
-    // loop through and get sizes of all symbols then we can start
-    if( strcmp(methodName, "start") == 0 ) start(programSize);
-
   }
   void visitMethodBodyImpl(MethodBodyImpl *p) {
     fprintf(m_outputfile, "#### METHODBODY\n");
@@ -373,14 +371,29 @@ public:
           TObject* t = (TObject*)d->m_type;
           ClassIDImpl* cid = (ClassIDImpl*)t->m_classid;
           type.classID = strdup(cid->m_classname->spelling());
-          int objectSize = cid->m_attribute.m_type.m_size;
+          // int objectSize = cid->m_attribute.m_type.m_size;
+          ClassNode* classObj = m_classtable->lookup(type.classID);
 
-          // fprintf(m_outputfile, "movl _heap_top, %%ecx\n");
-          // fprintf(m_outputfile, "addl $%d, _heap_top\n", objectSize);
+          // int offset = classObj->offset->get_offset(variableName);
+          int size = classObj->offset->getTotalSize();
+          // CompoundType type = classObj->offset->get_type(variableName);
+          cerr << "## Local: \'" << variableName << "\', size: " << size 
+              << ", offset: " << offset
+              << ", classID: " << cid->m_classname->spelling() << endl;
+
+          allocSpace(size);
+
+          fprintf(m_outputfile, "        movl %%ecx, %d(%%ebp)\n", offset);
+
+          // TODO: (same thing can be done inside self & methodcall for thier params)
+          // find the location of this Variable # on stack (offset from ebp?) and set it equal to the location
+          // of heapstart that is return from allocSpace
+          // fprintf(m_outputfile, "        pushl %d(%%ecx)\n", offset);
+          currMethodOffset->insert(variableName, offset, size, type);
+        } else {
+          cerr << "## Local: \'" << variableName << "\', type: " << bt_to_string(decl_type) << endl; //", classID: " << type.classID << endl;
+          currMethodOffset->insert(variableName, offset, wordsize, type);
         }
-
-        cerr << "## Local: \'" << variableName << "\', type: " << bt_to_string(decl_type) << endl; //", classID: " << type.classID << endl;
-        currMethodOffset->insert(variableName, offset, wordsize, type);
         offset = (offset - wordsize);
       }
     }
@@ -393,10 +406,21 @@ public:
     p->visit_children(this);
 
     char* variableName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
-    int offset = currMethodOffset->get_offset(variableName);
 
-    fprintf(m_outputfile, "        popl %%eax\n");
-    fprintf(m_outputfile, "        movl %%eax, %d(%%ebp)\n", offset);
+    if(currMethodOffset->exist(variableName)){
+      int offset = currMethodOffset->get_offset(variableName);
+
+      fprintf(m_outputfile, "        popl %%eax\n");
+      fprintf(m_outputfile, "        movl %%eax, %d(%%ebp)\n", offset);
+    } else {
+      int offset = currClassOffset->get_offset(variableName);
+
+      // fprintf(m_outputfile, "        pushl %d(%%ecx)\n", offset);
+      cerr << "# ASSIGN variable: " << variableName << ", offset: " << offset << endl;
+      fprintf(m_outputfile, "        popl %%eax\n");
+      fprintf(m_outputfile, "        movl 8(%%ebp), %%ebx\n");
+      fprintf(m_outputfile, "        movl %%eax, %d(%%ebx)\n", offset);
+    }
 
   }
   void visitIf(If *p) {
@@ -583,9 +607,21 @@ public:
     }
 
     char* variableName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
-    CompoundType type = currMethodOffset->get_type(variableName);
-    cerr << "# MethodCall, class name: " << type.classID << ", type: " << bt_to_string(type.baseType) << endl;
+    int offset = -1;
+    CompoundType type;
+    if(currMethodOffset->exist(variableName)){
+      type = currMethodOffset->get_type(variableName);
+      offset = currMethodOffset->get_offset(variableName);
+    } else {
+      type = currClassOffset->get_type(variableName);
+      offset = currClassOffset->get_offset(variableName);
+    }
 
+    cerr << "# MethodCall, class name: " << type.classID
+        << ", type: " << bt_to_string(type.baseType)
+        << ", offset: " << offset << endl;
+
+    fprintf(m_outputfile, "        pushl %d(%%ebp)\n", offset);
     // Push return address
     // Call the function
     MethodIDImpl* m = ((MethodIDImpl*)p->m_methodid);
@@ -615,7 +651,7 @@ public:
     }
 
     // Push return address
-    // fprintf(m_outputfile, "        pushl %%esp\n");
+    fprintf(m_outputfile, "        pushl 8(%%ebp)\n");
 
     // Call the function
     MethodIDImpl* m = ((MethodIDImpl*)p->m_methodid);
@@ -635,11 +671,24 @@ public:
 
          // WRITEME
     char* variableName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
-    int offset = currMethodOffset->get_offset(variableName);
-    int size = currMethodOffset->get_size(variableName);
-    cerr << "# variable: " << variableName << ", offset: " << offset << ", size: " << size << endl;
-    fprintf(m_outputfile, "        pushl %d(%%ebp)\n", offset);
-    // -4(%ebp)
+    if(currMethodOffset->exist(variableName)){
+      int offset = currMethodOffset->get_offset(variableName);
+      int size = currMethodOffset->get_size(variableName);
+      // CompoundType type = currMethodOffset->get_type(variableName);
+
+      cerr << "# L variable: " << variableName << ", offset: " << offset
+           << ", size: " << size << endl;
+      fprintf(m_outputfile, "        pushl %d(%%ebp)\n", offset);
+    } else {
+      int offset = currClassOffset->get_offset(variableName);
+      int size = currClassOffset->get_size(variableName);
+      // CompoundType type = currClassOffset->get_type(variableName);
+
+      cerr << "# CL variable: " << variableName << ", offset: " << offset << endl;
+      // fprintf(m_outputfile, "        pushl %d(%%ecx)\n", offset);
+      fprintf(m_outputfile, "        movl 8(%%ebp), %%eax\n");
+      fprintf(m_outputfile, "        pushl %d(%%eax)\n", offset);
+    }
 
   }
   void visitIntegerLiteral(IntegerLiteral *p) {
