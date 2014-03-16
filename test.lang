@@ -1,0 +1,39 @@
+Dog {
+  add() : Int {
+    some : Int;
+    b : Bool;
+    some = 72;
+    print some;
+    print b;
+    return some;
+  };
+};
+
+Program {
+  v : Int;
+  hlll : Bool;
+
+  haha(a : Int, b : Int) : Int {
+    bad : Bool;
+    z : Int;
+    bad = false;
+    if bad then print a;
+    z = 5;
+    return a + b + z;
+  };
+
+  start() : Nothing {
+    a : Int;
+    dog : Dog;
+    a = 2;
+    print a;
+    a = dog.add();
+    print a;
+    a = haha(5, 5+5);
+    print 88;
+    print a;
+    return;
+  };
+};
+
+
