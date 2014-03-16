@@ -1,10 +1,12 @@
 Dog {
+  first : Int;
+  second : Int;
+
   add() : Int {
     some : Int;
     b : Bool;
     some = 72;
     print some;
-    print b;
     return some;
   };
 };
@@ -12,6 +14,7 @@ Dog {
 Program {
   v : Int;
   hlll : Bool;
+  dogger : Dog;
 
   haha(a : Int, b : Int) : Int {
     bad : Bool;
@@ -19,17 +22,16 @@ Program {
     bad = false;
     if bad then print a;
     z = 5;
+    print a + b + z;
     return a + b + z;
   };
 
   start() : Nothing {
     a : Int;
-    dog : Dog;
     a = 2;
     print a;
-    a = dog.add();
-    print a;
-    a = haha(5, 5+5);
+    print 88;
+    a = haha(8, 6+6);
     print 88;
     print a;
     return;

@@ -205,41 +205,89 @@ public:
 
   void visitProgramImpl(ProgramImpl *p) {
 
-	init();
-  fprintf(m_outputfile, "# PROGRAM\n");
-         // WRITEME
-  p->visit_children(this);
+  	init();
+    fprintf(m_outputfile, "# PROGRAM\n");
+
+    p->visit_children(this);
 
   }
   void visitClassImpl(ClassImpl *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "## CLASS\n");
 
     ClassIDImpl* cid = ((ClassIDImpl*)p->m_classid_1);
     char* className = strdup(cid->m_classname->spelling());
     currClassName = strdup(className);
 
-    int offset = p->m_attribute.m_type.m_offset;
-    int size = p->m_attribute.m_type.m_size;
+    // int offset = p->m_attribute.m_type.m_offset;
+    // int size = p->m_attribute.m_type.m_size;
 
     CompoundType type;
     type.classID = strdup(className);
     type.baseType = bt_function;
 
     currClassOffset = new OffsetTable();
-    currClassOffset->insert(className, offset, size, type);
+    // currClassOffset->insert(className, offset, size, type);
 
-    p->visit_children(this);
+    // TODO: regular variables in class then objects in class
+    int offset = 0;
+    int size = 0;
+    list<Declaration_ptr>::iterator dec_i;
+    forall(dec_i, p->m_declaration_list){
+      DeclarationImpl* d = (DeclarationImpl*)(*dec_i);
+
+      d->m_type->accept(this);
+      Basetype decl_type = d->m_type->m_attribute.m_type.baseType;
+
+      list<VariableID_ptr>::iterator var_i;
+      forall(var_i, d->m_variableid_list){
+        VariableIDImpl* var = ((VariableIDImpl*)(*var_i));
+        char *variableName = strdup(var->m_symname->spelling());
+
+        cerr << "## Class: \'" << variableName << "\', type: " << bt_to_string(decl_type) << endl;
+
+        CompoundType type;
+        type.baseType = decl_type;
+        if(type.baseType == bt_object){
+          TObject* t = (TObject*)d->m_type;
+          ClassIDImpl* cid = (ClassIDImpl*)t->m_classid;
+          type.classID = strdup(cid->m_classname->spelling());
+
+          // int objectSize = cid->m_attribute.m_type.m_size;
+          int objectSize = m_classtable->lookup(type.classID)->offset->getTotalSize();
+          cerr << "## object size: " << objectSize << ", classID: \"" << type.classID << "\"" << endl;
+          // Do we allocate a pointer to the object within this object or
+          // actually create this object         
+          currClassOffset->insert(variableName, offset, objectSize, type);
+          offset = (offset + objectSize);
+          size = (size + objectSize);
+        } else {
+          currClassOffset->insert(variableName, offset, wordsize, type);
+          size = (size + wordsize);
+          offset = (offset + wordsize);
+        }
+      }
+    }
+
+    // Set the size
+    cerr << "# CLASS SIZE: " << size << endl;
+    currClassOffset->setTotalSize(size);
+    p->m_attribute.m_type.m_size = size;
+
+    // Store class info for others to reference
+    ClassNode* currentClass = m_classtable->lookup(p->m_attribute.m_type.classType.classID);
+    currClassOffset->copyTo(currentClass->offset);
+    currClassOffset->setTotalSize(size);
+
+    list<Method_ptr>::iterator meth_i;
+    forall(meth_i, p->m_method_list){
+      (*meth_i)->accept(this);
+    }
   }
   void visitDeclarationImpl(DeclarationImpl *p) {
-
          // WRITEME
 
   }
   void visitMethodImpl(MethodImpl *p) {
-
-         // WRITEME
     int programSize = 0;
     MethodIDImpl* m = ((MethodIDImpl*)p->m_methodid);
     visitMethodIDImpl(m);
@@ -296,18 +344,14 @@ public:
     // allocate space for local variables
     // Subtract from stack pointer
     fprintf(m_outputfile,"        subl $%d,%%esp\n", currMethodOffset->getTotalSize());
-    cerr << "#### total subtract from %%esp: " << currMethodOffset->getTotalSize() << endl;
-    // Look into OffsetTable function getTotalSize()
 
     p->visit_children(this);
 
-    // loop through and get sizes of all symbols
+    // loop through and get sizes of all symbols then we can start
     if( strcmp(methodName, "start") == 0 ) start(programSize);
 
   }
   void visitMethodBodyImpl(MethodBodyImpl *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "#### METHODBODY\n");
 
     int offset = (-wordsize);
@@ -329,26 +373,22 @@ public:
           TObject* t = (TObject*)d->m_type;
           ClassIDImpl* cid = (ClassIDImpl*)t->m_classid;
           type.classID = strdup(cid->m_classname->spelling());
+          int objectSize = cid->m_attribute.m_type.m_size;
+
+          // fprintf(m_outputfile, "movl _heap_top, %%ecx\n");
+          // fprintf(m_outputfile, "addl $%d, _heap_top\n", objectSize);
         }
 
-        cerr << "## Local: \'" << variableName << "\', type: " << bt_to_string(decl_type) << ", classID: " << type.classID << endl;
+        cerr << "## Local: \'" << variableName << "\', type: " << bt_to_string(decl_type) << endl; //", classID: " << type.classID << endl;
         currMethodOffset->insert(variableName, offset, wordsize, type);
         offset = (offset - wordsize);
       }
-    }    
+    }
 
     p->visit_children(this);
-
-
   }
-  void visitParameterImpl(ParameterImpl *p) {
-		
-         // WRITEME
-
-  }
+  void visitParameterImpl(ParameterImpl *p) {}
   void visitAssignment(Assignment *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "##### ASSIGNMENT\n");
     p->visit_children(this);
 
@@ -360,12 +400,8 @@ public:
 
   }
   void visitIf(If *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "##### IF ELSE\n");
 
-    //  Expression *m_expression;
-    //  Statement *m_statement;
     p->m_expression->accept(this);
     int label = new_label();
     fprintf(m_outputfile, "        popl %%eax\n");
@@ -376,18 +412,13 @@ public:
 
   }
   void visitPrint(Print *p) {
-	
-         // WRITEME
     fprintf(m_outputfile, "##### PRINT\n");
     p->visit_children(this);
 
-    // TODO: acts kind of weird
+    // TODO: acts kind of weird. does it though?
     fprintf(m_outputfile, "        call Print\n");
-
   }
   void visitReturnImpl(ReturnImpl *p) {
-
-         // WRITEME
     p->visit_children(this);
     // Store the return value
     // fprintf( m_outputfile, "  call Print\n");
@@ -397,12 +428,11 @@ public:
     cerr << "## epilogue" << endl;
     // clean up  activation record
     // deallocating the local variable space allocated
+    fprintf(m_outputfile, "        addl $%d, %%esp\n", currMethodOffset->getTotalSize());
     // restoring the caller's activation record pointer
     fprintf(m_outputfile, "        leave\n");
     // returning to the return address
     fprintf(m_outputfile, "        ret\n\n");
-
-
   }
   void visitTInteger(TInteger *p) {
     p->m_attribute.m_type.baseType = bt_integer;
@@ -417,26 +447,15 @@ public:
     p->m_attribute.m_type.baseType = bt_object;
   }
   void visitClassIDImpl(ClassIDImpl *p) {
-
-         // WRITEME
     // fprintf(m_outputfile, "####### CLASS ID\n");
-
   }
   void visitVariableIDImpl(VariableIDImpl *p) {
-
-         // WRITEME
     // fprintf(m_outputfile, "####### VARIABLE ID\n");
-
   }
   void visitMethodIDImpl(MethodIDImpl *p) {
-
-         // WRITEME
     // fprintf(m_outputfile, "####### METHOD ID\n");
-
   }
   void visitPlus(Plus *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "####### ADD\n");
 
     p->visit_children(this);
@@ -448,8 +467,6 @@ public:
 
   }
   void visitMinus(Minus *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "###### MINUS\n");
 
     p->visit_children(this);
@@ -461,8 +478,6 @@ public:
 
   }
   void visitTimes(Times *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "###### TIMES\n");
 
     p->visit_children(this);
@@ -474,8 +489,6 @@ public:
 
   }
   void visitDivide(Divide *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "###### DIVIDE\n");
 
     p->visit_children(this);
@@ -488,8 +501,6 @@ public:
 
   }
   void visitAnd(And *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "###### AND\n");
 
     p->visit_children(this);
@@ -501,8 +512,6 @@ public:
 
   }
   void visitLessThan(LessThan *p) {
-
-         // WRITEME
     p->visit_children(this);
 
     int l = new_label();
@@ -524,8 +533,6 @@ public:
 
   }
   void visitLessThanEqualTo(LessThanEqualTo *p) {
-
-         // WRITEME
     p->visit_children(this);
 
     int l = new_label();
@@ -546,8 +553,6 @@ public:
 
   }
   void visitNot(Not *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "###### NOT\n");
 
     p->visit_children(this);
@@ -558,8 +563,6 @@ public:
 
   }
   void visitUnaryMinus(UnaryMinus *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "###### AND\n");
 
     p->visit_children(this);
@@ -570,9 +573,7 @@ public:
 
   }
   void visitMethodCall(MethodCall *p) {
-
-         // WRITEME
-  //   VariableID *m_variableid;
+    // TODO: check super classes as well
     // Push arguments on the stack
     int param_size = p->m_expression_list->size();
     list<Expression_ptr>::reverse_iterator exp_i;
@@ -583,7 +584,7 @@ public:
 
     char* variableName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
     CompoundType type = currMethodOffset->get_type(variableName);
-    cerr << "# class name: " << type.classID << ", type: " << type.baseType << endl;
+    cerr << "# MethodCall, class name: " << type.classID << ", type: " << bt_to_string(type.baseType) << endl;
 
     // Push return address
     // Call the function
@@ -595,6 +596,9 @@ public:
     // POST-CALL
     cerr << "## post-call" << endl;
     fprintf(m_outputfile, "        addl $%d, %%ebp\n", param_size*wordsize);
+
+    // Put return value onto stack
+    fprintf(m_outputfile, "        pushl %%eax\n");
 
   }
   void visitSelfCall(SelfCall *p) {
@@ -611,6 +615,8 @@ public:
     }
 
     // Push return address
+    // fprintf(m_outputfile, "        pushl %%esp\n");
+
     // Call the function
     MethodIDImpl* m = ((MethodIDImpl*)p->m_methodid);
     visitMethodIDImpl(m);
@@ -620,6 +626,9 @@ public:
     // POST-CALL
     cerr << "## post-call" << endl;
     fprintf(m_outputfile, "        addl $%d, %%ebp\n", param_size*wordsize);
+
+    // Put return value onto stack
+    fprintf(m_outputfile, "        pushl %%eax\n");
 
   }
   void visitVariable(Variable *p) {
@@ -634,15 +643,11 @@ public:
 
   }
   void visitIntegerLiteral(IntegerLiteral *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "####### INT literal\n");
     fprintf(m_outputfile, "        pushl $%d\n", p->m_primitive->m_data);
 
   }
   void visitBooleanLiteral(BooleanLiteral *p) {
-
-         // WRITEME
     fprintf(m_outputfile, "####### BOOL literal\n");
     fprintf(m_outputfile, "        pushl $%d\n", p->m_primitive->m_data);
 
