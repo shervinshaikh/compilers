@@ -219,19 +219,44 @@ public:
     char* className = strdup(cid->m_classname->spelling());
     currClassName = strdup(className);
 
-    // int offset = p->m_attribute.m_type.m_offset;
-    // int size = p->m_attribute.m_type.m_size;
-
     CompoundType type;
     type.classID = strdup(className);
     type.baseType = bt_function;
 
     currClassOffset = new OffsetTable();
-    // currClassOffset->insert(className, offset, size, type);
 
-    // TODO: regular variables in class then objects in class
     int offset = 4;
     int size = 0;
+
+    ClassNode* current_class = m_classtable->lookup(className);
+    current_class = m_classtable->getParentOf(current_class->name);
+    while( strcmp(current_class->name->spelling(), "TopClass") != 0 && current_class->scope != NULL){
+      list<Declaration_ptr>::iterator dec_i;
+      forall(dec_i, current_class->p->m_declaration_list){
+        DeclarationImpl* d = (DeclarationImpl*)(*dec_i);
+
+        d->m_type->accept(this);
+        Basetype decl_type = d->m_type->m_attribute.m_type.baseType;
+
+        list<VariableID_ptr>::iterator var_i;
+        forall(var_i, d->m_variableid_list){
+          VariableIDImpl* var = ((VariableIDImpl*)(*var_i));
+          char *variableName = strdup(var->m_symname->spelling());
+
+          cerr << "## Class var: \'" << variableName << "\', type: " << bt_to_string(decl_type);
+
+          CompoundType type;
+          type.baseType = decl_type;
+          cerr << ", offset: " << offset << endl;
+          currClassOffset->insert(variableName, offset, wordsize, type);
+          
+          size = (size + wordsize);
+          offset = (offset + wordsize);
+        }
+      }
+      current_class = m_classtable->getParentOf(current_class->name);
+    }
+
     list<Declaration_ptr>::iterator dec_i;
     forall(dec_i, p->m_declaration_list){
       DeclarationImpl* d = (DeclarationImpl*)(*dec_i);
@@ -248,24 +273,11 @@ public:
 
         CompoundType type;
         type.baseType = decl_type;
-        if(type.baseType == bt_object){
-          TObject* t = (TObject*)d->m_type;
-          ClassIDImpl* cid = (ClassIDImpl*)t->m_classid;
-          type.classID = strdup(cid->m_classname->spelling());
-
-          int objectSize = m_classtable->lookup(type.classID)->offset->getTotalSize();
-          cerr << "## object size: " << objectSize << ", classID: \"" << type.classID << "\"" << endl;
-          currClassOffset->insert(variableName, offset, wordsize, type);
-
-          offset = (offset + wordsize);
-          size = (size + wordsize);
-        } else {
-          cerr << ", offset: " << offset << endl;
-          currClassOffset->insert(variableName, offset, wordsize, type);
-          
-          size = (size + wordsize);
-          offset = (offset + wordsize);
-        }
+        cerr << ", offset: " << offset << endl;
+        currClassOffset->insert(variableName, offset, wordsize, type);
+        
+        size = (size + wordsize);
+        offset = (offset + wordsize);
       }
     }
     if (strcmp(type.classID, "Program") == 0) start(size);
@@ -299,10 +311,6 @@ public:
     int num_args = p->m_parameter_list->size();
     int num_locals = mbi->m_declaration_list->size();
     int totalSize = num_locals*4;
-
-    // int offset = p->m_attribute.m_type.m_offset;
-    // p->m_attribute.m_type.m_offset = num_locals;
-    // p->m_attribute.m_type.m_size = totalSize;
 
     currMethodOffset = new OffsetTable();
     // currMethodOffset->insert(methodName, offset, size, type);
@@ -594,7 +602,10 @@ public:
 
   }
   void visitMethodCall(MethodCall *p) {
-    // TODO: check super classes as well
+    MethodIDImpl* m = ((MethodIDImpl*)p->m_methodid);
+    visitMethodIDImpl(m);
+    char* methodName = strdup(m->m_symname->spelling());
+
     // Push arguments on the stack
     int param_size = p->m_expression_list->size();
     list<Expression_ptr>::reverse_iterator exp_i;
@@ -604,26 +615,36 @@ public:
     }
 
     char* variableName = strdup(((VariableIDImpl*)(p->m_variableid))->m_symname->spelling());
-    int offset = -1;
+    int offset;
     CompoundType type;
     if(currMethodOffset->exist(variableName)){
       type = currMethodOffset->get_type(variableName);
       offset = currMethodOffset->get_offset(variableName);
     } else {
-      type = currClassOffset->get_type(variableName);
-      offset = currClassOffset->get_offset(variableName);
+      if(currClassOffset->exist(variableName)){
+        type = currClassOffset->get_type(variableName);
+        offset = currClassOffset->get_offset(variableName);  
+      } else {
+        // what if variable is in parent class? Do we just copy it over?   
+      }
+    }
+
+    ClassNode* current_class = m_classtable->lookup(type.classID);
+    while( strcmp(current_class->name->spelling(), "TopClass") != 0 && current_class->scope != NULL){
+      if(current_class->scope->exist(methodName)){
+        type.classID = current_class->name->spelling();
+        break;
+      }
+      current_class = m_classtable->getParentOf(current_class->name);
     }
 
     cerr << "# MethodCall, class name: " << type.classID
-        << ", type: " << bt_to_string(type.baseType)
+        << ", objName: " << variableName
         << ", offset: " << offset << endl;
 
     fprintf(m_outputfile, "        pushl %d(%%ebp)\n", offset);
     // Push return address
     // Call the function
-    MethodIDImpl* m = ((MethodIDImpl*)p->m_methodid);
-    visitMethodIDImpl(m);
-    char* methodName = strdup(m->m_symname->spelling());
     fprintf(m_outputfile, "        call %s_%s\n", type.classID, methodName);
 
     // POST-CALL

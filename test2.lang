@@ -1,56 +1,40 @@
-Animal
+FibGenerator
 {
-  strength : Int;
-  set(var1: Int, var2: Int): Nothing
-  {
-    strength = var1 + var2;
-    print strength;
-    return;
-  };
+    last:Int;
+    second_to_last:Int;
+    
+    next_fib():Int
+    {
+        next:Int;
+        next = last + second_to_last;
+        second_to_last = last;
+        last = next;
+        return next;
+    };
+};
 
-  get(): Int
-  {
-    print strength;
-    return strength;
-  };
+OnceResetingFibGenerator from FibGenerator
+{
 
+    update( state1:Int, state2:Int ): Bool
+    {
+        last = state1;
+        second_to_last = state2;
+        return true;
+    };
 };
 
 
-Program
+Program 
 {
-  q : Int;
-  r : Int;
-
-  end(z : Int): Nothing
-  {
-    print z;
-    r = z;
-    q = 5;
-
-    return;
-  };
-
-
-  start() : Nothing
-  {
-    a : Nothing;
-    b : Int;
-    c : Int;
-    tiger: Animal;
-    snake: Animal;
-    lion: Animal;
-    
-    a = tiger.set(1,2);
-    a = snake.set(3,4);
-    a = lion.set(5,6);
-
-    print 999;
-
-    print tiger.get();
-    print snake.get();
-    print lion.get();
-
-    return;
-  };
+    start() : Nothing
+    {
+        success : Bool;
+        f : OnceResetingFibGenerator;
+        success = f.update(1, 1);
+        print f.next_fib();
+        print f.next_fib();
+        print f.next_fib();
+        return;
+    };
 };
