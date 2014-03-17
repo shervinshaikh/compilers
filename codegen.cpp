@@ -188,9 +188,7 @@ class Codegen : public Visitor
 
   void allocSpace(int size)
   {
-	// Optional WRITE ME
     fprintf(m_outputfile, "        movl _heap_top, %%ecx\n");
-    // fprintf(m_outputfile, "        pushl %s\n", heapTop);
     fprintf(m_outputfile, "        addl $%d, %s\n", size, heapTop);
   }
 
@@ -311,7 +309,7 @@ public:
     currMethodOffset->setTotalSize(totalSize);
     currMethodOffset->setParamSize(num_args*wordsize);
 
-    int offset = wordsize*2;
+    int offset = wordsize*3;
     list<Parameter_ptr>::iterator par_i;
     forall(par_i, p->m_parameter_list){
       ParameterImpl* pa = (ParameterImpl*)(*par_i);
@@ -445,7 +443,6 @@ public:
   void visitReturnImpl(ReturnImpl *p) {
     p->visit_children(this);
     // Store the return value
-    // fprintf( m_outputfile, "  call Print\n");
     fprintf(m_outputfile, "        popl %%eax\n");
 
     // EPILOGUE
@@ -631,7 +628,7 @@ public:
 
     // POST-CALL
     cerr << "## post-call" << endl;
-    fprintf(m_outputfile, "        addl $%d, %%ebp\n", param_size*wordsize);
+    fprintf(m_outputfile, "        addl $%d, %%esp\n", (param_size+1)*wordsize);
 
     // Put return value onto stack
     fprintf(m_outputfile, "        pushl %%eax\n");
@@ -661,7 +658,8 @@ public:
 
     // POST-CALL
     cerr << "## post-call" << endl;
-    fprintf(m_outputfile, "        addl $%d, %%ebp\n", param_size*wordsize);
+    // are we clearing arguments here?
+    fprintf(m_outputfile, "        addl $%d, %%esp\n", param_size*wordsize);
 
     // Put return value onto stack
     fprintf(m_outputfile, "        pushl %%eax\n");

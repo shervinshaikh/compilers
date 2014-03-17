@@ -1,19 +1,17 @@
 Animal
 {
-
-  dummy: Int;
-  dummy1: Int;
-  add(): Int
+  strength : Int;
+  set(var1: Int, var2: Int): Nothing
   {
-    a: Int;
-    b: Int;
-    dummy = 5;
-    dummy1 = 6;
+    strength = var1 + var2;
+    print strength;
+    return;
+  };
 
-    return dummy + dummy1;
-
-
-  
+  get(): Int
+  {
+    print strength;
+    return strength;
   };
 
 };
@@ -24,13 +22,13 @@ Program
   q : Int;
   r : Int;
 
-  end(): Nothing
+  end(z : Int): Nothing
   {
-    r = 7;
-  q = 5;
+    print z;
+    r = z;
+    q = 5;
 
-  return;
-
+    return;
   };
 
 
@@ -40,12 +38,19 @@ Program
     b : Int;
     c : Int;
     tiger: Animal;
+    snake: Animal;
+    lion: Animal;
+    
+    a = tiger.set(1,2);
+    a = snake.set(3,4);
+    a = lion.set(5,6);
 
+    print 999;
 
-  b = tiger.add();  
-  
-  print b;
-   
+    print tiger.get();
+    print snake.get();
+    print lion.get();
+
     return;
   };
 };
